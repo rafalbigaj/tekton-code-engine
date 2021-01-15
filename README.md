@@ -1,4 +1,4 @@
-# Knative Sample Controller
+# Code Engine Task Controller
 
 [![GoDoc](https://godoc.org/knative.dev/sample-controller?status.svg)](https://godoc.org/knative.dev/sample-controller)
 [![Go Report Card](https://goreportcard.com/badge/knative/sample-controller)](https://goreportcard.com/report/knative/sample-controller)

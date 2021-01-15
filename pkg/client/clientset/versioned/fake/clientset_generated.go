@@ -19,14 +19,14 @@ limitations under the License.
 package fake
 
 import (
+	clientset "github.com/rafalbigaj/tekton-code-engine/pkg/client/clientset/versioned"
+	customv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/client/clientset/versioned/typed/codeenginetask/v1alpha1"
+	fakecustomv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/client/clientset/versioned/typed/codeenginetask/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-	clientset "knative.dev/sample-controller/pkg/client/clientset/versioned"
-	samplesv1alpha1 "knative.dev/sample-controller/pkg/client/clientset/versioned/typed/samples/v1alpha1"
-	fakesamplesv1alpha1 "knative.dev/sample-controller/pkg/client/clientset/versioned/typed/samples/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// SamplesV1alpha1 retrieves the SamplesV1alpha1Client
-func (c *Clientset) SamplesV1alpha1() samplesv1alpha1.SamplesV1alpha1Interface {
-	return &fakesamplesv1alpha1.FakeSamplesV1alpha1{Fake: &c.Fake}
+// CustomV1alpha1 retrieves the CustomV1alpha1Client
+func (c *Clientset) CustomV1alpha1() customv1alpha1.CustomV1alpha1Interface {
+	return &fakecustomv1alpha1.FakeCustomV1alpha1{Fake: &c.Fake}
 }

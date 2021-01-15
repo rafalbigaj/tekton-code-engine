@@ -1,0 +1,18 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: codeenginetask-pipeline
+spec:
+  tasks:
+    - name: run-custom-task
+      taskRef:
+        apiVersion: custom.tekton.dev/v1beta1
+        kind: CodeEngineTask
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: codeenginetask-pipeline-run-1
+spec:
+  pipelineRef:
+    name: codeenginetask-pipeline

@@ -9,3 +9,9 @@
 # Temporary output of build tools
 bazel-*
 *.out
+
+# go vendor
+vendor
+
+# build output
+_output

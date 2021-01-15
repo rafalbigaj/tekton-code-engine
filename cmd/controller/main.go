@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
-	"knative.dev/sample-controller/pkg/reconciler/addressableservice"
-	"knative.dev/sample-controller/pkg/reconciler/simpledeployment"
+	"github.com/rafalbigaj/tekton-code-engine/pkg/reconciler/codeenginetask"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
@@ -27,7 +26,6 @@ import (
 
 func main() {
 	sharedmain.Main("controller",
-		addressableservice.NewController,
-		simpledeployment.NewController,
+		codeenginetask.NewController,
 	)
 }

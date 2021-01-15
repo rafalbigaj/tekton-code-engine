@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Knative Authors
+Copyright 2020 The Knative Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,12 +35,12 @@ import (
 	"knative.dev/pkg/webhook/resourcesemantics/defaulting"
 	"knative.dev/pkg/webhook/resourcesemantics/validation"
 
-	"knative.dev/sample-controller/pkg/apis/samples/v1alpha1"
+	"github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask/v1alpha1"
 )
 
 var types = map[schema.GroupVersionKind]resourcesemantics.GenericCRD{
 	// List the types to validate.
-	v1alpha1.SchemeGroupVersion.WithKind("AddressableService"): &v1alpha1.AddressableService{},
+	v1alpha1.SchemeGroupVersion.WithKind("CodeEngineTask"): &v1alpha1.CodeEngineTask{},
 }
 
 var callbacks = map[schema.GroupVersionKind]validation.Callback{}
@@ -49,7 +49,7 @@ func NewDefaultingAdmissionController(ctx context.Context, cmw configmap.Watcher
 	return defaulting.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
-		fmt.Sprintf("defaulting.webhook.%s.knative.dev", system.Namespace()),
+		fmt.Sprintf("defaulting.webhook.%s.custom.tekton.dev", system.Namespace()),
 
 		// The path on which to serve the webhook.
 		"/defaulting",
@@ -73,7 +73,7 @@ func NewValidationAdmissionController(ctx context.Context, cmw configmap.Watcher
 	return validation.NewAdmissionController(ctx,
 
 		// Name of the resource webhook.
-		fmt.Sprintf("validation.webhook.%s.knative.dev", system.Namespace()),
+		fmt.Sprintf("validation.webhook.%s.custom.tekton.dev", system.Namespace()),
 
 		// The path on which to serve the webhook.
 		"/resource-validation",
@@ -100,7 +100,7 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 	return configmaps.NewAdmissionController(ctx,
 
 		// Name of the configmap webhook.
-		fmt.Sprintf("config.webhook.%s.knative.dev", system.Namespace()),
+		fmt.Sprintf("config.webhook.%s.custom.tekton.dev", system.Namespace()),
 
 		// The path on which to serve the webhook.
 		"/config-validation",

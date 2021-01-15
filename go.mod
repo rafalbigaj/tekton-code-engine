@@ -1,4 +1,4 @@
-module knative.dev/sample-controller
+module github.com/rafalbigaj/tekton-code-engine
 
 go 1.14
 
@@ -8,8 +8,9 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
-	go.uber.org/zap v1.16.0
-	k8s.io/api v0.18.12
+	github.com/tektoncd/pipeline v0.20.0
+	go.uber.org/zap v1.16.0 // indirect
+	k8s.io/api v0.18.12 // indirect
 	k8s.io/apimachinery v0.18.12
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/code-generator v0.18.12

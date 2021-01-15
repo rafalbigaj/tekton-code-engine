@@ -15,39 +15,43 @@
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: defaulting.webhook.knative-samples.knative.dev
+  name: defaulting.webhook.tekton-pipelines.custom.tekton.dev
   labels:
-    samples.knative.dev/release: devel
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/part-of: tekton-code-engine
 webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
     service:
       name: webhook
-      namespace: knative-samples
+      namespace: tekton-pipelines
   failurePolicy: Fail
-  name: defaulting.webhook.knative-samples.knative.dev
+  name: defaulting.webhook.tekton-pipelines.custom.tekton.dev
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: validation.webhook.knative-samples.knative.dev
+  name: validation.webhook.tekton-pipelines.custom.tekton.dev
   labels:
-    samples.knative.dev/release: devel
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/part-of: tekton-code-engine
 webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
     service:
       name: webhook
-      namespace: knative-samples
+      namespace: tekton-pipelines
   failurePolicy: Fail
-  name: validation.webhook.knative-samples.knative.dev
+  name: validation.webhook.tekton-pipelines.custom.tekton.dev
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: config.webhook.knative-samples.knative.dev
+  name: config.webhook.tekton-pipelines.custom.tekton.dev
   labels:
     serving.knative.dev/release: devel
 webhooks:
@@ -56,19 +60,21 @@ webhooks:
   clientConfig:
     service:
       name: webhook
-      namespace: knative-samples
+      namespace: tekton-pipelines
   failurePolicy: Fail
-  name: config.webhook.knative-samples.knative.dev
+  name: config.webhook.tekton-pipelines.custom.tekton.dev
   namespaceSelector:
     matchExpressions:
-    - key: samples.knative.dev/release
+    - key: custom.tekton.dev/release
       operator: Exists
 ---
 apiVersion: v1
 kind: Secret
 metadata:
   name: webhook-certs
-  namespace: knative-samples
+  namespace: tekton-pipelines
   labels:
-    samples.knative.dev/release: devel
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/part-of: tekton-code-engine
 # The data is populated at install time.
