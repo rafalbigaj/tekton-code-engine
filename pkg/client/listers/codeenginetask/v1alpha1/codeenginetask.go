@@ -26,8 +26,10 @@ import (
 )
 
 // CodeEngineTaskLister helps list CodeEngineTasks.
+// All objects returned here must be treated as read-only.
 type CodeEngineTaskLister interface {
 	// List lists all CodeEngineTasks in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.CodeEngineTask, err error)
 	// CodeEngineTasks returns an object that can list and get CodeEngineTasks.
 	CodeEngineTasks(namespace string) CodeEngineTaskNamespaceLister
@@ -58,10 +60,13 @@ func (s *codeEngineTaskLister) CodeEngineTasks(namespace string) CodeEngineTaskN
 }
 
 // CodeEngineTaskNamespaceLister helps list and get CodeEngineTasks.
+// All objects returned here must be treated as read-only.
 type CodeEngineTaskNamespaceLister interface {
 	// List lists all CodeEngineTasks in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1alpha1.CodeEngineTask, err error)
 	// Get retrieves the CodeEngineTask from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1alpha1.CodeEngineTask, error)
 	CodeEngineTaskNamespaceListerExpansion
 }

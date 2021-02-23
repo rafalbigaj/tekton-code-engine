@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/kmeta"
 )
 
 // CodeEngineTask is a Knative abstraction that encapsulates the interface by which Knative
@@ -27,6 +28,9 @@ import (
 //
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CodeEngineTask represents a remote batch job executed in IBM Code Engine.
+// +k8s:openapi-gen=true
 type CodeEngineTask struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
@@ -41,23 +45,62 @@ type CodeEngineTask struct {
 	Status CodeEngineTaskStatus `json:"status,omitempty"`
 }
 
+var (
+	// Check that AddressableService can be validated and defaulted.
+	_ apis.Validatable   = (*CodeEngineTask)(nil)
+	_ apis.Defaultable   = (*CodeEngineTask)(nil)
+	_ kmeta.OwnerRefable = (*CodeEngineTask)(nil)
+	// Check that the type conforms to the duck Knative Resource shape.
+	_ duckv1.KRShaped = (*CodeEngineTask)(nil)
+)
+
 // CodeEngineTaskSpec holds the desired state of the CodeEngineTask (from the client).
 type CodeEngineTaskSpec struct {
-	Image    string `json:"image"`
-	Replicas int32  `json:"replicas"`
+	JobDefinitionName string `json:"jobDefinitionName"`
+}
+
+// CodeEngineTaskRunReason represents a reason for the Run "Succeeded" condition
+type CodeEngineTaskRunReason string
+
+const (
+	// CodeEngineTaskRunReason is the reason set when the Run has just started
+	CodeEngineTaskRunReasonStarted CodeEngineTaskRunReason = "Started"
+
+	// CodeEngineTaskRunReasonRunning indicates that the Run is in progress
+	CodeEngineTaskRunReasonRunning CodeEngineTaskRunReason = "Running"
+
+	// CodeEngineTaskRunReasonFailed indicates that one of the TaskRuns created from the Run failed
+	CodeEngineTaskRunReasonFailed CodeEngineTaskRunReason = "Failed"
+
+	// CodeEngineTaskRunReasonSucceeded indicates that all of the TaskRuns created from the Run completed successfully
+	CodeEngineTaskRunReasonSucceeded CodeEngineTaskRunReason = "Succeeded"
+
+	// CodeEngineTaskRunReasonCouldntGetTask indicates that the associated CodeEngineTask couldn't be retrieved
+	CodeEngineTaskRunReasonCouldntGetTask CodeEngineTaskRunReason = "CouldntGetCodeEngineTask"
+
+	// CodeEngineTaskRunReasonFailedToAccessCluster indicates that Code Engine k8s cluster cannot be accessed
+	CodeEngineTaskRunReasonFailedToAccessCluster CodeEngineTaskRunReason = "FailedToAccessCluster"
+)
+
+func (t CodeEngineTaskRunReason) String() string {
+	return string(t)
 }
 
 const (
-	// SimpleDeploymentConditionReady is set when the revision is starting to materialize
+	// CodeEngineTaskConditionReady is set when the revision is starting to materialize
 	// runtime resources, and becomes true when those resources are ready.
-	SimpleDeploymentConditionReady = apis.ConditionReady
+	CodeEngineTaskConditionReady = apis.ConditionReady
 )
 
 // CodeEngineTaskStatus communicates the observed state of the CodeEngineTask (from the controller).
 type CodeEngineTaskStatus struct {
 	duckv1.Status `json:",inline"`
 
-	ReadyReplicas int32 `json:"readyReplicas"`
+	// CodeEngineTaskSpec contains the exact spec used to instantiate the Run
+	CodeEngineTaskSpec *CodeEngineTaskSpec `json:"codeEngineTaskSpec,omitempty"`
+
+	// JobRunName is a name of the job run from CodeEngine
+	JobRunName string `json:"jobRunName,omitempty"`
 }
 
 // CodeEngineTaskList is a list of AddressableService resources

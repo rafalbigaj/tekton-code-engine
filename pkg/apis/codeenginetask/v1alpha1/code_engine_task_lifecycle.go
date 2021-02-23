@@ -21,7 +21,7 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-var simpleDeploymentCondSet = apis.NewLivingConditionSet()
+var condSet = apis.NewLivingConditionSet()
 
 // GetGroupVersionKind implements kmeta.OwnerRefable
 func (*CodeEngineTask) GetGroupVersionKind() schema.GroupVersionKind {
@@ -30,23 +30,23 @@ func (*CodeEngineTask) GetGroupVersionKind() schema.GroupVersionKind {
 
 // GetConditionSet retrieves the condition set for this resource. Implements the KRShaped interface.
 func (t *CodeEngineTask) GetConditionSet() apis.ConditionSet {
-	return simpleDeploymentCondSet
+	return condSet
 }
 
 // InitializeConditions sets the initial values to the conditions.
 func (ts *CodeEngineTaskStatus) InitializeConditions() {
-	simpleDeploymentCondSet.Manage(ts).InitializeConditions()
+	condSet.Manage(ts).InitializeConditions()
 }
 
-// MarkPodsNotReady makes the CodeEngineTask be not ready.
-func (ts *CodeEngineTaskStatus) MarkPodsNotReady(n int32) {
-	simpleDeploymentCondSet.Manage(ts).MarkFalse(
-		SimpleDeploymentConditionReady,
-		"PodsNotReady",
-		"%d pods are not ready yet", n)
+// MarkJobNotReady makes the CodeEngineTask be not ready.
+func (ts *CodeEngineTaskStatus) MarkJobNotReady(jobId string) {
+	condSet.Manage(ts).MarkFalse(
+		CodeEngineTaskConditionReady,
+		"JobNotReady",
+		"job %q not started yet", jobId)
 }
 
-// MarkPodsReady makes the CodeEngineTask be ready.
-func (ts *CodeEngineTaskStatus) MarkPodsReady() {
-	// condSet.Manage(ts).MarkTrue(SimpleDeploymentConditionReady)
+// MarkJobReady makes the CodeEngineTask be ready.
+func (ts *CodeEngineTaskStatus) MarkJobReady() {
+	condSet.Manage(ts).MarkTrue(CodeEngineTaskConditionReady)
 }

@@ -29,8 +29,8 @@ func (t *CodeEngineTask) Validate(ctx context.Context) *apis.FieldError {
 
 // Validate implements apis.Validatable
 func (ts *CodeEngineTaskSpec) Validate(ctx context.Context) *apis.FieldError {
-	if ts.Image == "" {
-		return apis.ErrMissingField("image")
+	if ts.JobDefinitionName == "" {
+		return apis.ErrMissingField("jobDefinitionName")
 	}
 	return nil
 }

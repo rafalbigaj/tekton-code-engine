@@ -15,7 +15,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: codeenginetask.custom.tekton.dev
+  name: codeenginetasks.custom.tekton.dev
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
@@ -25,14 +25,14 @@ spec:
   group: custom.tekton.dev
   version: v1alpha1
   names:
-    kind: CustomEngineTask
+    kind: CodeEngineTask
     plural: codeenginetasks
     singular: codeenginetask
     categories:
-    - all
-    - knative
+    - tekton
+    - tekton-pipelines
     shortNames:
-    - sdeploy
+    - cet
   scope: Namespaced
   subresources:
     status: {}

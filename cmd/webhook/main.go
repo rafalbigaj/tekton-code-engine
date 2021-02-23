@@ -115,12 +115,12 @@ func NewConfigValidationController(ctx context.Context, cmw configmap.Watcher) *
 
 func main() {
 	ctx := webhook.WithOptions(signals.NewContext(), webhook.Options{
-		ServiceName: "webhook",
+		ServiceName: "tekton-code-engine-webhook",
 		Port:        8443,
-		SecretName:  "webhook-certs",
+		SecretName:  "tekton-code-engine-webhook-certs",
 	})
 
-	sharedmain.WebhookMainWithContext(ctx, "webhook",
+	sharedmain.WebhookMainWithContext(ctx, "tekton-code-engine-webhook",
 		certificates.NewController,
 		NewDefaultingAdmissionController,
 		NewValidationAdmissionController,

@@ -105,6 +105,11 @@ func (in *CodeEngineTaskSpec) DeepCopy() *CodeEngineTaskSpec {
 func (in *CodeEngineTaskStatus) DeepCopyInto(out *CodeEngineTaskStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
+	if in.CodeEngineTaskSpec != nil {
+		in, out := &in.CodeEngineTaskSpec, &out.CodeEngineTaskSpec
+		*out = new(CodeEngineTaskSpec)
+		**out = **in
+	}
 	return
 }
 

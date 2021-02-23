@@ -18,9 +18,18 @@ package v1alpha1
 
 import (
 	"context"
+
+	"knative.dev/pkg/apis"
 )
+
+var _ apis.Defaultable = (*CodeEngineTask)(nil)
 
 // SetDefaults implements apis.Defaultable
 func (t *CodeEngineTask) SetDefaults(ctx context.Context) {
+	t.Spec.SetDefaults(ctx)
+}
+
+// SetDefaults set any defaults for the PipelineLoop spec
+func (tls *CodeEngineTaskSpec) SetDefaults(ctx context.Context) {
 	// Nothing to default.
 }

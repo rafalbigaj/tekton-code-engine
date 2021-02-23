@@ -15,3 +15,6 @@ vendor
 
 # build output
 _output
+
+# removed configs
+_redundant_configs

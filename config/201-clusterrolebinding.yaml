@@ -15,16 +15,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: knative-codeenginetask-controller-admin
+  name: tekton-code-engine-controller-admin
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
 subjects:
   - kind: ServiceAccount
-    name: controller
+    name: tekton-code-engine-controller
     namespace: tekton-pipelines
 roleRef:
   kind: ClusterRole
-  name: tekton-code-engine-controller
+  name: tekton-code-engine-controller-cluster-access
   apiGroup: rbac.authorization.k8s.io

@@ -7,6 +7,9 @@ metadata:
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
 rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
   - apiGroups: [""]
     resources: ["configmaps", "services", "secrets", "events", "pods"]
     verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
@@ -25,3 +28,13 @@ rules:
   - apiGroups: ["custom.tekton.dev"]
     resources: ["*"]
     verbs: ["get", "list", "create", "update", "delete", "deletecollection", "patch", "watch"]
+  - apiGroups: ["tekton.dev"]
+    resources: ["runs", "taskruns", "pipelineruns"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["tekton.dev"]
+    resources: ["runs/status", "taskruns/status", "pipelineruns/status", "runs/finalizers"]
+    verbs: ["get", "list", "create", "update", "delete", "patch", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies"]
+    resourceNames: ["tekton-pipelines"]
+    verbs: ["use"]

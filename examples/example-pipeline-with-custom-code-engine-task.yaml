@@ -1,3 +1,11 @@
+---
+apiVersion: custom.tekton.dev/v1alpha1
+kind: CodeEngineTask
+metadata:
+  name: codeenginetask-1
+spec:
+  jobDefinitionName: test-job-001
+---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -6,8 +14,9 @@ spec:
   tasks:
     - name: run-custom-task
       taskRef:
-        apiVersion: custom.tekton.dev/v1beta1
+        apiVersion: custom.tekton.dev/v1alpha1
         kind: CodeEngineTask
+        name: codeenginetask-1
 ---
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun

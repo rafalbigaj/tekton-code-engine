@@ -15,7 +15,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: webhook
+  name: tekton-code-engine-webhook
   namespace: tekton-pipelines
   labels:
     app.kubernetes.io/component: controller
@@ -32,9 +32,9 @@ spec:
       labels:
         app: webhook
         role: webhook
-          app.kubernetes.io/component: controller
-          app.kubernetes.io/instance: default
-          app.kubernetes.io/part-of: tekton-code-engine
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/instance: default
+        app.kubernetes.io/part-of: tekton-code-engine
     spec:
       # To avoid node becoming SPOF, spread our replicas to different nodes.
       affinity:
@@ -47,12 +47,12 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 100
 
-      serviceAccountName: controller
+      serviceAccountName: tekton-code-engine-controller
       containers:
       - name: webhook
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: ko://knative.dev/sample-controller/cmd/webhook
+        image: ko://github.com/rafalbigaj/tekton-code-engine/cmd/webhook
         resources:
           requests:
             cpu: 20m
@@ -68,9 +68,9 @@ spec:
         - name: CONFIG_LOGGING_NAME
           value: config-logging
         - name: METRICS_DOMAIN
-          value: knative.dev/codeenginetask
+          value: custom.tekton.dev/codeenginetask
         - name: WEBHOOK_NAME
-          value: webhook
+          value: tekton-code-engine-webhook
 
         securityContext:
           allowPrivilegeEscalation: false

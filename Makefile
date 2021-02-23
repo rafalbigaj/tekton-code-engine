@@ -1,7 +1,10 @@
-	BIN_DIR=_output/bin
+BIN_DIR=_output/bin
 
 # If tag not explicitly set in users default to the git sha.
 TAG ?= v0.0.1
+
+# If namespace not explicitly set in default tekton pipelines.
+NAMESPACE ?= tekton-pipelines
 
 .EXPORT_ALL_VARIABLES:
 
@@ -30,3 +33,12 @@ update:
 clean:
 	rm -rf _output/
 	rm -f *.log
+
+use-docker-daemon:
+	eval $(minikube docker-env)
+
+ko-local-apply: use-docker-daemon
+	ko apply -n $(NAMESPACE) -f config --local
+
+ko-delete: use-docker-daemon
+	ko delete -n $(NAMESPACE) -f config

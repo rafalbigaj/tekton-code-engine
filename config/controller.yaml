@@ -15,14 +15,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
+  name: tekton-code-engine-controller
   namespace: tekton-pipelines
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
 spec:
-  replicas: 1
+  replicas: 0 # TODO: turn on controller
   selector:
     matchLabels:
       app: controller
@@ -45,12 +45,12 @@ spec:
               topologyKey: kubernetes.io/hostname
             weight: 100
 
-      serviceAccountName: controller
+      serviceAccountName: tekton-code-engine-controller
       containers:
       - name: controller
         # This is the Go import path for the binary that is containerized
         # and substituted here.
-        image: ko://knative.dev/sample-controller/cmd/controller
+        image: ko://github.com/rafalbigaj/tekton-code-engine/cmd/controller
         resources:
           requests:
             cpu: 100m
@@ -71,7 +71,13 @@ spec:
         - name: CONFIG_OBSERVABILITY_NAME
           value: config-observability
         - name: METRICS_DOMAIN
-          value: knative.dev/codeenginetask
+          value: custom.tekton.dev/codeenginetask
+        - name: CODE_ENGINE_KUBECONFIG
+          value: /var/code-engine-secret/config
+
+        volumeMounts:
+        - name: code-engine-secret
+          mountPath: /var/code-engine-secret
 
         securityContext:
           allowPrivilegeEscalation: false
@@ -80,3 +86,8 @@ spec:
           capabilities:
             drop:
             - all
+      # This section attaches the secret "code-engine-secret"
+      volumes:
+        - name: code-engine-secret
+          secret:
+            secretName: google-robot-secret

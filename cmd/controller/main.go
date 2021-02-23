@@ -18,14 +18,21 @@ package main
 
 import (
 	// The set of controllers this controller process runs.
+	cecontext "github.com/rafalbigaj/tekton-code-engine/pkg/codeenegine"
 	"github.com/rafalbigaj/tekton-code-engine/pkg/reconciler/codeenginetask"
+	"knative.dev/pkg/signals"
+	"os"
 
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
 )
 
 func main() {
-	sharedmain.Main("controller",
+	ctx := cecontext.WithOptions(signals.NewContext(), cecontext.Options{
+		Kubeconfig: os.Getenv("CODE_ENGINE_KUBECONFIG"),
+	})
+
+	sharedmain.MainWithContext(ctx, "controller",
 		codeenginetask.NewController,
 	)
 }

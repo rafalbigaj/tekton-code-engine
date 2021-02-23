@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
-  name: webhook
+  name: tekton-code-engine-webhook
   namespace: tekton-pipelines
 spec:
   ports:

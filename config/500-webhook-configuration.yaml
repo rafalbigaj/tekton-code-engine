@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
   name: defaulting.webhook.tekton-pipelines.custom.tekton.dev
@@ -22,15 +22,16 @@ metadata:
     app.kubernetes.io/part-of: tekton-code-engine
 webhooks:
 - admissionReviewVersions:
-  - v1beta1
+  - v1
   clientConfig:
     service:
-      name: webhook
+      name: tekton-code-engine-webhook
       namespace: tekton-pipelines
   failurePolicy: Fail
+  sideEffects: None
   name: defaulting.webhook.tekton-pipelines.custom.tekton.dev
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: validation.webhook.tekton-pipelines.custom.tekton.dev
@@ -40,38 +41,46 @@ metadata:
     app.kubernetes.io/part-of: tekton-code-engine
 webhooks:
 - admissionReviewVersions:
-  - v1beta1
+  - v1
   clientConfig:
     service:
-      name: webhook
+      name: tekton-code-engine-webhook
       namespace: tekton-pipelines
   failurePolicy: Fail
+  sideEffects: None
   name: validation.webhook.tekton-pipelines.custom.tekton.dev
 ---
-apiVersion: admissionregistration.k8s.io/v1beta1
+apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: config.webhook.tekton-pipelines.custom.tekton.dev
   labels:
     serving.knative.dev/release: devel
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/instance: default
+    app.kubernetes.io/part-of: tekton-code-engine
 webhooks:
 - admissionReviewVersions:
-  - v1beta1
+  - v1
   clientConfig:
     service:
-      name: webhook
+      name: tekton-code-engine-webhook
       namespace: tekton-pipelines
   failurePolicy: Fail
+  sideEffects: None
   name: config.webhook.tekton-pipelines.custom.tekton.dev
-  namespaceSelector:
-    matchExpressions:
-    - key: custom.tekton.dev/release
-      operator: Exists
+#  namespaceSelector:
+#    matchExpressions:
+#    - key: custom.tekton.dev/release
+#      operator: Exists
+  objectSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: tekton-code-engine
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: webhook-certs
+  name: tekton-code-engine-webhook-certs
   namespace: tekton-pipelines
   labels:
     app.kubernetes.io/component: controller
