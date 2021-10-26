@@ -18,21 +18,35 @@ package context
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
 
-	"github.com/IBM/code-engine-go-sdk/pkg/client/clientset/versioned"
-	"github.com/IBM/code-engine-go-sdk/pkg/client/clientset/versioned/typed/codeengine/v1beta1"
-	"github.com/IBM/code-engine-go-sdk/pkg/client/informers/externalversions"
-	informersv1beta1 "github.com/IBM/code-engine-go-sdk/pkg/client/informers/externalversions/codeengine/v1beta1"
+	"github.com/IBM/code-engine-go-sdk/ibmcloudcodeenginev1"
+	"github.com/IBM/go-sdk-core/v4/core"
+	"github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/clientset/versioned"
+	"github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/clientset/versioned/typed/codeengine/v1beta1"
+	"github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/informers/externalversions"
+	informersv1beta1 "github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/informers/externalversions/codeengine/v1beta1"
 	"go.uber.org/zap"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/pkg/controller"
-	"knative.dev/pkg/injection"
 	"knative.dev/pkg/logging"
 )
 
-// optionsKey is used as the key for associating information
+const (
+	CEApiKeyEnv        = "CE_API_KEY"
+	CEProjectRegionEnv = "CE_PROJECT_REGION"
+	CEProjectIdEnv     = "CE_PROJECT_ID"
+)
+
+// namespaceKey is used as the key for associating information
 // with a context.Context.
-type optionsKey struct{}
+type namespaceKey struct{}
 
 // clientKey is used as the key for associating information
 // with a context.Context.
@@ -46,16 +60,8 @@ type jobDefinitionInformerKey struct{}
 // with a context.Context.
 type jobRunInformerKey struct{}
 
-// Options contains the configuration for the webhook
-type Options struct {
-	// Kubeconfig is the kubeconfig filepath.
-	Kubeconfig string
-}
-
-// WithOptions associates a set of webhook.Options with
-// the returned context.
-func WithOptions(ctx context.Context, opt Options) context.Context {
-	ctx = context.WithValue(ctx, optionsKey{}, &opt)
+// WithClient initializes Code Engine client and informers.
+func WithClientAndInformers(ctx context.Context) context.Context {
 	return startCodeEngineInformers(ctx)
 }
 
@@ -75,14 +81,20 @@ func withClient(ctx context.Context, client *versioned.Clientset) context.Contex
 	return context.WithValue(ctx, clientKey{}, client)
 }
 
-// GetOptions retrieves webhook.Options associated with the
+// withNamespace associates a set of CodeEngine clientset with
+// the returned context.
+func withNamespace(ctx context.Context, ns string) context.Context {
+	return context.WithValue(ctx, namespaceKey{}, ns)
+}
+
+// GetNamespace retrieves webhook.Options associated with the
 // given context via WithOptions (above).
-func GetOptions(ctx context.Context) *Options {
-	v := ctx.Value(optionsKey{})
+func GetNamespace(ctx context.Context) string {
+	v := ctx.Value(namespaceKey{})
 	if v == nil {
-		return nil
+		return ""
 	}
-	return v.(*Options)
+	return v.(string)
 }
 
 // GetClient retrieves CodeEngine clientset associated with the
@@ -98,7 +110,8 @@ func GetClient(ctx context.Context) *versioned.Clientset {
 // GetJobRunsClient retrieves CodeEngine JobRuns associated with the
 // given context via withClient (above).
 func GetJobRunsClient(ctx context.Context) v1beta1.JobRunInterface {
-	return GetClient(ctx).CodeengineV1beta1().JobRuns("5wijbqm1mq4")
+	ns := GetNamespace(ctx)
+	return GetClient(ctx).CodeengineV1beta1().JobRuns(ns)
 }
 
 // GetJobDefinitionInformer retrieves JobDefinitionInformer associated with the
@@ -121,29 +134,118 @@ func GetJobRunInformer(ctx context.Context) informersv1beta1.JobRunInformer {
 	return v.(informersv1beta1.JobRunInformer)
 }
 
+func getCodeEngineKubeConfig(ctx context.Context) (clientcmd.ClientConfig, error) {
+	logger := logging.FromContext(ctx)
+
+	// Validate environment
+	requiredEnvs := []string{CEApiKeyEnv, CEProjectRegionEnv, CEProjectIdEnv}
+	for _, envName := range requiredEnvs {
+		val := os.Getenv(envName)
+		if val == "" {
+			return nil, fmt.Errorf("environment variable %s must be set", envName)
+		}
+		logger.Debugf("ENV[%s]: %s", envName, val)
+	}
+
+	// Create an IAM authenticator.
+	authenticator := &core.IamAuthenticator{
+		ApiKey:       os.Getenv(CEApiKeyEnv),
+		ClientId:     "bx",
+		ClientSecret: "bx",
+	}
+
+	// Setup a Code Engine client
+	ceClient, err := ibmcloudcodeenginev1.NewIbmCloudCodeEngineV1(&ibmcloudcodeenginev1.IbmCloudCodeEngineV1Options{
+		Authenticator: authenticator,
+		URL:           "https://api." + os.Getenv(CEProjectRegionEnv) + ".codeengine.cloud.ibm.com/api/v1",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to setup Code Engine client %v", err)
+	}
+
+	// Use the http library to get an IAM Delegated Refresh Token
+	iamRequestData := url.Values{}
+	iamRequestData.Set("grant_type", "urn:ibm:params:oauth:grant-type:apikey")
+	iamRequestData.Set("apikey", os.Getenv(CEApiKeyEnv))
+	iamRequestData.Set("response_type", "delegated_refresh_token")
+	iamRequestData.Set("receiver_client_ids", "ce")
+	iamRequestData.Set("delegated_refresh_token_expiry", "3600")
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "https://iam.cloud.ibm.com/identity/token", strings.NewReader(iamRequestData.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("unable to create IAM token request for Code Engine client %v", err)
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get delegated IAM token for Code Engine client %v", err)
+	}
+
+	var iamResponseData map[string]string
+	json.NewDecoder(resp.Body).Decode(&iamResponseData)
+	resp.Body.Close()
+
+	if resp.StatusCode == http.StatusBadRequest {
+		errorCode := iamResponseData["errorCode"]
+		errorMessage := iamResponseData["errorMessage"]
+		return nil, fmt.Errorf("unable to get IAM token [%s]: %s", errorCode, errorMessage)
+	}
+
+	delegatedRefreshToken := iamResponseData["delegated_refresh_token"]
+
+	// Get Code Engine project config using the Code Engine Client
+	projectID := os.Getenv(CEProjectIdEnv)
+	result, _, err := ceClient.GetKubeconfigWithContext(ctx, &ibmcloudcodeenginev1.GetKubeconfigOptions{
+		XDelegatedRefreshToken: &delegatedRefreshToken,
+		ID:                     &projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get kubeconfig for Code Engine project: %v, %v", projectID, err)
+	}
+
+	// Get Kubernetes client using Code Engine project config
+	kubeClientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(*result))
+	if err != nil {
+		return nil, fmt.Errorf("unable to load Kubernetes config retrived from Code Engine project %v: %v", projectID, err)
+	}
+	return kubeClientConfig, nil
+}
+
 func startCodeEngineInformers(ctx context.Context) context.Context {
 	logger := logging.FromContext(ctx)
 
-	opts := GetOptions(ctx)
+	codeEngineClientConfig, err := getCodeEngineKubeConfig(ctx)
 
-	codeEngineCfg, err := injection.GetRESTConfig("", opts.Kubeconfig)
 	if err != nil {
-		logger.Fatalw("", zap.Error(err))
+		logger.Fatalw("Unable to load Code Engine kubernetes config", zap.Error(err))
+	}
+
+	codeEngineCfg, err := codeEngineClientConfig.ClientConfig()
+	if err != nil {
+		logger.Fatalw("Unable to get ClientConfig from Code Engine kubernetes config", zap.Error(err))
 	}
 
 	client := versioned.NewForConfigOrDie(codeEngineCfg)
 	ctx = withClient(ctx, client)
 
+	namespace, _, err := codeEngineClientConfig.Namespace()
+	if err != nil {
+		logger.Fatalw("Unable to get namespace from Code Engine kubernetes config", zap.Error(err))
+	}
+
 	factory := externalversions.NewSharedInformerFactoryWithOptions(client, controller.GetResyncPeriod(ctx),
-		externalversions.WithNamespace("5wijbqm1mq4"))
+		externalversions.WithNamespace(namespace))
 
 	jobDefinitionInformer := factory.Codeengine().V1beta1().JobDefinitions()
 	jobRunInformer := factory.Codeengine().V1beta1().JobRuns()
 
-	logging.FromContext(ctx).Info("Starting CodeEngine informers...")
+	logger.Info("Starting CodeEngine informers...")
 	if err := controller.StartInformers(ctx.Done(), jobDefinitionInformer.Informer(), jobRunInformer.Informer()); err != nil {
-		logging.FromContext(ctx).Fatalw("Failed to start CodeEngine informers", zap.Error(err))
+		logger.Fatalw("Failed to start CodeEngine informers", zap.Error(err))
 	}
+
+	ctx = withNamespace(ctx, namespace)
 
 	return withInformers(ctx, jobDefinitionInformer, jobRunInformer)
 }

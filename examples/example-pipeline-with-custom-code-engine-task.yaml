@@ -4,24 +4,36 @@ kind: CodeEngineTask
 metadata:
   name: codeenginetask-1
 spec:
-  jobDefinitionName: test-job-001
+  jobDefinitionName: job-hello-world
+---
+apiVersion: custom.tekton.dev/v1alpha1
+kind: CodeEngineTask
+metadata:
+  name: codeenginetask-2
+spec:
+  jobDefinitionName: job-hello-world
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: codeenginetask-pipeline
+  name: codeenginetask-pipeline-cx1
 spec:
   tasks:
-    - name: run-custom-task
+    - name: run-custom-task-1
       taskRef:
         apiVersion: custom.tekton.dev/v1alpha1
         kind: CodeEngineTask
         name: codeenginetask-1
+    - name: run-custom-task-2
+      taskRef:
+        apiVersion: custom.tekton.dev/v1alpha1
+        kind: CodeEngineTask
+        name: codeenginetask-2
 ---
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
-  name: codeenginetask-pipeline-run-1
+  name: codeenginetask-pipeline-run-cx1-001
 spec:
   pipelineRef:
-    name: codeenginetask-pipeline
+    name: codeenginetask-pipeline-cx1

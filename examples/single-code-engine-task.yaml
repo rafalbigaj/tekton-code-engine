@@ -1,0 +1,27 @@
+---
+apiVersion: custom.tekton.dev/v1alpha1
+kind: CodeEngineTask
+metadata:
+  name: ce-task-jobdefinition-e1
+spec:
+  jobDefinitionName: jobdefinition-e1
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ce-simple-pipeline-1
+spec:
+  tasks:
+    - name: run-custom-task-1
+      taskRef:
+        apiVersion: custom.tekton.dev/v1alpha1
+        kind: CodeEngineTask
+        name: ce-task-jobdefinition-e1
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: ce-simple-pipeline-1-001
+spec:
+  pipelineRef:
+    name: ce-simple-pipeline-1

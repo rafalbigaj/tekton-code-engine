@@ -17,22 +17,49 @@ limitations under the License.
 package main
 
 import (
+	"flag"
+	"fmt"
+	"go.uber.org/zap"
+	"os"
+
 	// The set of controllers this controller process runs.
 	cecontext "github.com/rafalbigaj/tekton-code-engine/pkg/codeenegine"
 	"github.com/rafalbigaj/tekton-code-engine/pkg/reconciler/codeenginetask"
+	"knative.dev/pkg/logging"
 	"knative.dev/pkg/signals"
-	"os"
-
 	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
 )
 
+const (
+	LogLevelEnv = "LOG_LEVEL"
+)
+
 func main() {
-	ctx := cecontext.WithOptions(signals.NewContext(), cecontext.Options{
-		Kubeconfig: os.Getenv("CODE_ENGINE_KUBECONFIG"),
-	})
+	flag.Parse()
+	logger := initLogger()
+
+	ctx := signals.NewContext()
+	ctx = logging.WithLogger(ctx, logger)
+	ctx = cecontext.WithClientAndInformers(ctx)
 
 	sharedmain.MainWithContext(ctx, "controller",
 		codeenginetask.NewController,
 	)
+}
+
+func initLogger() *zap.SugaredLogger {
+	logLevel := os.Getenv(LogLevelEnv)
+	config := zap.NewProductionConfig()
+	switch logLevel {
+	case "debug":
+		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	case "error":
+		config.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	}
+	logger, err := config.Build()
+	if err != nil {
+		panic(fmt.Sprintf("Cannot initialize logger: %v", err))
+	}
+	return logger.Sugar()
 }

@@ -22,7 +22,7 @@ metadata:
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
 spec:
-  replicas: 0 # TODO: turn on controller
+  replicas: 1
   selector:
     matchLabels:
       app: controller
@@ -46,6 +46,8 @@ spec:
             weight: 100
 
       serviceAccountName: tekton-code-engine-controller
+      imagePullSecrets:
+        - name: ai-lifecycle
       containers:
       - name: controller
         # This is the Go import path for the binary that is containerized
@@ -62,6 +64,8 @@ spec:
         - name: metrics
           containerPort: 9090
         env:
+        - name: KUBERNETES_MIN_VERSION
+          value: 1.19.0
         - name: SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:
@@ -72,12 +76,21 @@ spec:
           value: config-observability
         - name: METRICS_DOMAIN
           value: custom.tekton.dev/codeenginetask
-        - name: CODE_ENGINE_KUBECONFIG
-          value: /var/code-engine-secret/config
-
-        volumeMounts:
-        - name: code-engine-secret
-          mountPath: /var/code-engine-secret
+        - name: CE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: code-engine-secret
+              key: apikey
+        - name: CE_PROJECT_REGION
+          valueFrom:
+            secretKeyRef:
+              name: code-engine-secret
+              key: region
+        - name: CE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: code-engine-secret
+              key: projectid
 
         securityContext:
           allowPrivilegeEscalation: false
@@ -86,8 +99,3 @@ spec:
           capabilities:
             drop:
             - all
-      # This section attaches the secret "code-engine-secret"
-      volumes:
-        - name: code-engine-secret
-          secret:
-            secretName: google-robot-secret

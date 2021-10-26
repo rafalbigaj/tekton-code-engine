@@ -78,8 +78,11 @@ const (
 	// CodeEngineTaskRunReasonCouldntGetTask indicates that the associated CodeEngineTask couldn't be retrieved
 	CodeEngineTaskRunReasonCouldntGetTask CodeEngineTaskRunReason = "CouldntGetCodeEngineTask"
 
-	// CodeEngineTaskRunReasonFailedToAccessCluster indicates that Code Engine k8s cluster cannot be accessed
-	CodeEngineTaskRunReasonFailedToAccessCluster CodeEngineTaskRunReason = "FailedToAccessCluster"
+	// CodeEngineTaskRunReasonFailedToStartJobRun indicates that Code Engine job run can not be created
+	CodeEngineTaskRunReasonFailedToStartJobRun CodeEngineTaskRunReason = "FailedToStartJobRun"
+
+	// CodeEngineTaskRunReasonFailedToGetJobRunStatus indicates that Code Engine job run status can not be gathered
+	CodeEngineTaskRunReasonFailedToGetJobRunStatus CodeEngineTaskRunReason = "FailedToGetJobRunStatus"
 )
 
 func (t CodeEngineTaskRunReason) String() string {
