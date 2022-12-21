@@ -23,7 +23,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: tekton-code-engine-controller
-    namespace: tekton-pipelines
+    namespace: tekton-code-engine
 roleRef:
   kind: ClusterRole
   name: tekton-code-engine-controller-cluster-access

@@ -56,7 +56,7 @@ var (
 
 // CodeEngineTaskSpec holds the desired state of the CodeEngineTask (from the client).
 type CodeEngineTaskSpec struct {
-	JobDefinitionName string `json:"jobDefinitionName"`
+	JobName string `json:"jobName"`
 }
 
 // CodeEngineTaskRunReason represents a reason for the Run "Succeeded" condition

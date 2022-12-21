@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/instance: default
     app.kubernetes.io/part-of: tekton-code-engine
   name: tekton-code-engine-webhook
-  namespace: tekton-pipelines
+  namespace: tekton-code-engine
 spec:
   ports:
     - port: 443

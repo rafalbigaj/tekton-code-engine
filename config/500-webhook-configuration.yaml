@@ -26,7 +26,7 @@ webhooks:
   clientConfig:
     service:
       name: tekton-code-engine-webhook
-      namespace: tekton-pipelines
+      namespace: tekton-code-engine
   failurePolicy: Fail
   sideEffects: None
   name: defaulting.webhook.tekton-pipelines.custom.tekton.dev
@@ -45,7 +45,7 @@ webhooks:
   clientConfig:
     service:
       name: tekton-code-engine-webhook
-      namespace: tekton-pipelines
+      namespace: tekton-code-engine
   failurePolicy: Fail
   sideEffects: None
   name: validation.webhook.tekton-pipelines.custom.tekton.dev
@@ -65,7 +65,7 @@ webhooks:
   clientConfig:
     service:
       name: tekton-code-engine-webhook
-      namespace: tekton-pipelines
+      namespace: tekton-code-engine
   failurePolicy: Fail
   sideEffects: None
   name: config.webhook.tekton-pipelines.custom.tekton.dev
@@ -81,7 +81,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: tekton-code-engine-webhook-certs
-  namespace: tekton-pipelines
+  namespace: tekton-code-engine
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default

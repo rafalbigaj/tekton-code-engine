@@ -18,7 +18,7 @@ package codeenginetask
 
 import (
 	"context"
-	apisv1beta1 "github.com/rafal-bigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
+	apisv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
 	"github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask"
 	codeenginetaskv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask/v1alpha1"
 	cetaskinformer "github.com/rafalbigaj/tekton-code-engine/pkg/client/injection/informers/codeenginetask/v1alpha1/codeenginetask"

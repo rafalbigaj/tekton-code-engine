@@ -20,16 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/reconciler"
 
 	"github.com/hashicorp/go-multierror"
-	apisv1beta1 "github.com/rafal-bigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
-	typedv1beta1 "github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/clientset/versioned/typed/codeengine/v1beta1"
-	listersv1beta1 "github.com/rafal-bigaj/code-engine-batch-job-client/pkg/client/listers/codeengine/v1beta1"
+	apisv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
+	typedv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/client/clientset/versioned/typed/codeengine/v1beta1"
+	listersv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/client/listers/codeengine/v1beta1"
 	"github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask"
 	taskv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask/v1alpha1"
 	tasklisterv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/client/listers/codeenginetask/v1alpha1"
@@ -37,7 +35,6 @@ import (
 	listersalpha "github.com/tektoncd/pipeline/pkg/client/listers/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/reconciler/events"
 	"go.uber.org/zap"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -63,13 +60,13 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 
 	// This logger has all the context necessary to identify which resource is being reconciled.
 	logger := logging.FromContext(ctx)
-	logger.Infof("Reconciling CodeEngine task run %s/%s at %v", run.Namespace, run.Name, time.Now())
+	logger.Info("Reconciling CodeEngine Run")
 
 	if run.Spec.Ref != nil && run.Spec.Spec != nil {
-		logger.Errorf("Run %s/%s can provide one of Run.Spec.Ref/Run.Spec.Spec", run.Namespace, run.Name)
+		logger.Error("Run has to provide one of Run.Spec.Ref/Run.Spec.Spec")
 	}
 	if run.Spec.Spec == nil && run.Spec.Ref == nil {
-		logger.Errorf("Run %s/%s does not provide a spec or ref.", run.Namespace, run.Name)
+		logger.Error("Run does not provide neither task spec nor reference")
 		return nil
 	}
 
@@ -77,8 +74,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 	if run.Spec.Ref != nil &&
 		(run.Spec.Ref.APIVersion != taskv1alpha1.SchemeGroupVersion.String() ||
 			run.Spec.Ref.Kind != codeenginetask.CustomTaskKind) {
-		logger.Errorf("Unexpected custom task Run %s/%s. Expected: %s/%s, got: %s/%s",
-			run.Namespace, run.Name,
+		logger.Errorf("Unexpected custom task kind: %s/%s, expected: %s/%s",
 			taskv1alpha1.SchemeGroupVersion.String(), codeenginetask.CustomTaskKind,
 			run.Spec.Ref.APIVersion, run.Spec.Ref.Kind)
 		return nil
@@ -88,10 +84,9 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 	if run.Spec.Spec != nil &&
 		(run.Spec.Spec.APIVersion != taskv1alpha1.SchemeGroupVersion.String() ||
 			run.Spec.Spec.Kind != codeenginetask.CustomTaskKind) {
-		logger.Errorf("Unexpected custom task Run %s/%s. Expected: %s/%s, got: %s/%s",
-			run.Namespace, run.Name,
+		logger.Errorf("Unexpected custom task kind: %s/%s, expected: %s/%s",
 			taskv1alpha1.SchemeGroupVersion.String(), codeenginetask.CustomTaskKind,
-			run.Spec.Spec.APIVersion, run.Spec.Spec.Kind)
+			run.Spec.Ref.APIVersion, run.Spec.Ref.Kind)
 		return nil
 	}
 
@@ -101,26 +96,25 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 
 	if run.IsDone() {
 		r.finalizeRun(ctx, run, logger)
-		return nil
-	}
+	} else {
+		status := &taskv1alpha1.CodeEngineTaskStatus{}
+		if err := run.Status.DecodeExtraFields(status); err != nil {
+			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
+				"Internal error calling DecodeExtraFields: %v", err)
+			logger.Errorf("DecodeExtraFields error: %v", err)
+		}
 
-	status := &taskv1alpha1.CodeEngineTaskStatus{}
-	if err := run.Status.DecodeExtraFields(status); err != nil {
-		run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
-			"Internal error calling DecodeExtraFields: %v", err)
-		logger.Errorf("DecodeExtraFields error: %v", err.Error())
-	}
+		// Reconcile the Run
+		if err := r.reconcile(ctx, run, logger, status); err != nil {
+			logger.Errorf("Reconcile error: %v", err)
+			mErr = multierror.Append(mErr, err)
+		}
 
-	// Reconcile the Run
-	if err := r.reconcile(ctx, run, logger, status); err != nil {
-		logger.Errorf("Reconcile error: %v", err.Error())
-		mErr = multierror.Append(mErr, err)
-	}
-
-	if err := run.Status.EncodeExtraFields(status); err != nil {
-		run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
-			"Internal error calling EncodeExtraFields: %v", err)
-		logger.Errorf("EncodeExtraFields error: %v", err.Error())
+		if err := run.Status.EncodeExtraFields(status); err != nil {
+			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
+				"Internal error calling EncodeExtraFields: %v", err)
+			logger.Errorf("EncodeExtraFields error: %v", err)
+		}
 	}
 
 	// Store the condition before reconcile
@@ -134,7 +128,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 
 // initialize the Condition and set the start time.
 func (r *Reconciler) initializeRun(ctx context.Context, run *v1alpha1.Run, logger *zap.SugaredLogger) {
-	logger.Infof("Starting new CodeEngine task Run %s/%s", run.Namespace, run.Name)
+	logger.Info("Initializing CodeEngine Run status")
 	run.Status.InitializeConditions()
 	// In case node time was not synchronized, when controller has been scheduled to other nodes.
 	if run.Status.StartTime.Sub(run.CreationTimestamp.Time) < 0 {
@@ -147,7 +141,7 @@ func (r *Reconciler) initializeRun(ctx context.Context, run *v1alpha1.Run, logge
 }
 
 func (r *Reconciler) finalizeRun(ctx context.Context, run *v1alpha1.Run, logger *zap.SugaredLogger) {
-	logger.Infof("Run %s/%s is done", run.Namespace, run.Name)
+	logger.Infof("CodeEngine Run is done")
 }
 
 func (r *Reconciler) reconcile(ctx context.Context, run *v1alpha1.Run, logger *zap.SugaredLogger, status *taskv1alpha1.CodeEngineTaskStatus) error {
@@ -178,7 +172,7 @@ func (r *Reconciler) getCodeEngineTask(ctx context.Context, run *v1alpha1.Run) (
 		taskSpec := taskv1alpha1.CodeEngineTaskSpec{}
 		err := json.Unmarshal(run.Spec.Spec.Spec.Raw, &taskSpec)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshal Code Engine task spec for Run %s: %w", fmt.Sprintf("%s/%s", run.Namespace, run.Name), err)
+			return nil, fmt.Errorf("error unmarshal Code Engine task spec: %w", err)
 		}
 		return &taskv1alpha1.CodeEngineTask{
 			TypeMeta: metav1.TypeMeta{
@@ -221,49 +215,26 @@ func storeCodeEngineTaskSpec(status *taskv1alpha1.CodeEngineTaskStatus, tls *tas
 func (r *Reconciler) runCodeEngineJob(ctx context.Context, run *v1alpha1.Run, status *taskv1alpha1.CodeEngineTaskStatus, logger *zap.SugaredLogger) error {
 	// Check if the run has not been started yet.
 	if status.JobRunName == "" {
-		jd, err := r.jobDefinitionLister.JobDefinitions(r.codeEngineNamespace).Get(status.CodeEngineTaskSpec.JobDefinitionName)
+		logger.Infof("Starting a new run for CodeEngine job: %q", status.CodeEngineTaskSpec.JobName)
+		jd, err := r.jobDefinitionLister.JobDefinitions(r.codeEngineNamespace).Get(status.CodeEngineTaskSpec.JobName)
 
 		if err != nil {
 			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailedToStartJobRun.String(),
-				"Error retrieving CodeEngine JobDefinition %q for Run %s/%s: %s",
-				status.CodeEngineTaskSpec.JobDefinitionName, run.Namespace, run.Name, err)
+				"Error retrieving CodeEngine JobDefinition %q: %v",
+				status.CodeEngineTaskSpec.JobName, run.Namespace, run.Name, err)
 			return err
 		}
 
-		jobEnv := []corev1.EnvVar{{
-			Name:  "JOB_COUNT",
-			Value: "20",
-		}}
-
 		jobRun := &apisv1beta1.JobRun{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: status.CodeEngineTaskSpec.JobDefinitionName + "-",
+				GenerateName: status.CodeEngineTaskSpec.JobName + "-",
 				Labels: map[string]string{
 					jobRunOwnerLabelKey:          run.Name,
 					jobRunOwnerNamespaceLabelKey: run.Namespace,
 				},
 			},
 			Spec: apisv1beta1.JobRunSpec{
-				JobDefinitionRef: status.CodeEngineTaskSpec.JobDefinitionName,
-				JobDefinitionSpec: apisv1beta1.JobDefinitionSpec{
-					// ArraySpec: StringPtr("1"),
-					// RetryLimit: Int64Ptr(3),
-					// MaxExecutionTime: Int64Ptr(7200),
-					Template: apisv1beta1.JobPodTemplate{
-						Containers: []corev1.Container{{
-							Env: jobEnv,
-							/* Image: "busybox",
-							Command: []string{"/bin/sh"},
-							Args: []string{"-c", "echo OK!"},
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU: resource.MustParse("1"),
-									corev1.ResourceMemory: resource.MustParse("128Mi"),
-								},
-							}, */
-						}},
-					},
-				},
+				JobDefinitionRef: status.CodeEngineTaskSpec.JobName,
 			},
 		}
 
@@ -272,26 +243,21 @@ func (r *Reconciler) runCodeEngineJob(ctx context.Context, run *v1alpha1.Run, st
 		createdJobRun, err := r.jobRunsClient.Create(ctx, jobRun, metav1.CreateOptions{})
 		if err != nil {
 			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailedToStartJobRun.String(),
-				"Error creating CodeEngine JobRun for Run %s/%s: %s",
-				run.Namespace, run.Name, err)
+				"Error creating CodeEngine JobRun: %v", err)
 			return err
 		}
 		status.JobRunName = createdJobRun.Name
 
 		run.Status.MarkRunRunning(taskv1alpha1.CodeEngineTaskRunReasonRunning.String(),
-			"CodeEngine JobRun %q created for Run %s/%s",
-			status.JobRunName, run.Namespace, run.Name)
+			"Created CodeEngine JobRun: %q", status.JobRunName)
 	}
 	return nil
 }
 
-func Int64Ptr(i int64) *int64 { return &i }
-
-func StringPtr(s string) *string { return &s }
-
 func (r *Reconciler) checkCodeEngineJobRunStatus(ctx context.Context, run *v1alpha1.Run, status *taskv1alpha1.CodeEngineTaskStatus, logger *zap.SugaredLogger) error {
 	// Check if the job run has been completed
 	if len(status.JobRunName) > 0 {
+		logger.Infof("Checking the state of CodeEngine JobRun: %q", status.JobRunName)
 		jobRun, err := r.jobRunLister.JobRuns(r.codeEngineNamespace).Get(status.JobRunName)
 
 		if err != nil {
@@ -299,23 +265,33 @@ func (r *Reconciler) checkCodeEngineJobRunStatus(ctx context.Context, run *v1alp
 				// ignore NotFound and wait for resource availability in informer cache
 				return nil
 			}
-			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailedToGetJobRunStatus.String(),
-				"Error retrieving CodeEngine JobRun %q status for Run %s/%s: %s",
-				status.JobRunName, run.Namespace, run.Name, err)
+			logger.Errorf("Error retriving CodeEngine JobRun %q status: %v", status.JobRunName, err)
+			// mark run as still running, but inaccessible
+			run.Status.MarkRunRunning(taskv1alpha1.CodeEngineTaskRunReasonFailedToGetJobRunStatus.String(),
+				"Error retrieving CodeEngine JobRun %q status: %v", status.JobRunName, err)
 			return err
 		}
 
+		logger.Infof("CodeEngine JobRun %q state: %s", status.JobRunName, JobRunStatus(&jobRun.Status))
+
 		if jobRun.CheckCondition(apisv1beta1.JobComplete) {
 			run.Status.MarkRunSucceeded(taskv1alpha1.CodeEngineTaskRunReasonSucceeded.String(),
-				"CodeEngine JobRun %q completed for Run %s/%s",
-				status.JobRunName, run.Namespace, run.Name)
+				"CodeEngine JobRun %q has completed", status.JobRunName)
 		}
 
 		if jobRun.CheckCondition(apisv1beta1.JobFailed) {
 			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
-				"CodeEngine JobRun %q failed for Run %s/%s",
-				status.JobRunName, run.Namespace, run.Name)
+				"CodeEngine JobRun %q has failed", status.JobRunName)
 		}
 	}
 	return nil
+}
+
+func JobRunStatus(js *apisv1beta1.JobRunStatus) string {
+	status := "Unknown"
+	if cond := js.GetLatestCondition(); cond != nil {
+		status = string(cond.Type)
+	}
+	return fmt.Sprintf("%s (unknown: %d, requested: %d, pending: %d, running: %d, succeeded: %d, failed: %d)",
+		status, js.Unknown, js.Requested, js.Pending, js.Running, js.Succeeded, js.Failed)
 }

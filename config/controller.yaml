@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tekton-code-engine-controller
-  namespace: tekton-pipelines
+  namespace: tekton-code-engine
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
@@ -44,7 +44,6 @@ spec:
                   app: controller
               topologyKey: kubernetes.io/hostname
             weight: 100
-
       serviceAccountName: tekton-code-engine-controller
       imagePullSecrets:
         - name: ai-lifecycle
@@ -90,12 +89,14 @@ spec:
           valueFrom:
             secretKeyRef:
               name: code-engine-secret
-              key: projectid
-
+              key: project
         securityContext:
           allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
           capabilities:
             drop:
-            - all
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsUser: 1000660001
+          runAsGroup: 1000660001
+          runAsNonRoot: true

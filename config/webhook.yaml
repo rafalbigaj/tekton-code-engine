@@ -16,7 +16,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tekton-code-engine-webhook
-  namespace: tekton-pipelines
+  namespace: tekton-code-engine
   labels:
     app.kubernetes.io/component: controller
     app.kubernetes.io/instance: default
@@ -80,6 +80,8 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          runAsUser: 1000660001
+          runAsGroup: 1000660001
           capabilities:
             drop:
             - all

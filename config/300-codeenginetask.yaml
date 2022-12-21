@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: codeenginetasks.custom.tekton.dev
@@ -23,7 +23,6 @@ metadata:
     knative.dev/crd-install: "true"
 spec:
   group: custom.tekton.dev
-  version: v1alpha1
   names:
     kind: CodeEngineTask
     plural: codeenginetasks
@@ -34,12 +33,16 @@ spec:
     shortNames:
     - cet
   scope: Namespaced
-  subresources:
-    status: {}
-  additionalPrinterColumns:
-  - name: Ready
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].status"
-  - name: Reason
-    type: string
-    JSONPath: ".status.conditions[?(@.type=='Ready')].reason"
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+      - name: JobName
+        type: string
+        description: the name of IBM Code Engine batch job
+        jsonPath: ".spec.jobName"

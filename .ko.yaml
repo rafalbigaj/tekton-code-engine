@@ -1,0 +1,2 @@
+defaultBaseImage: redhat/ubi8-minimal
+

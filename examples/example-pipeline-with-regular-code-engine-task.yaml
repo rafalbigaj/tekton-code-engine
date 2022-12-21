@@ -1,0 +1,83 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ibm-code-engine
+spec:
+  params:
+    - name: region
+      description: |
+        the name of IBM Cloud region
+    - name: resource-group
+      description: |
+        the name of IBM Cloud resource group
+    - name: project
+      description: |
+        the name of IBM Code Engine project
+    - name: job
+      description: |
+        the name of the job to be run in IBM Code Engine
+  steps:
+    - name: main
+      image: docker.io/rafalbigaj/ibmcloud-code-engine:2.12.1.001
+      command: [ "/bin/bash", "-c", "-e", "-o", "pipefail" ]
+      args:
+        - |
+          REGION="$(params.region)"
+          RESOURCE_GROUP="$(params.resource-group)"
+          PROJECT_NAME="$(params.project)"
+          JOB_NAME="$(params.job)"
+          
+          echo "Logging into IBM Cloud (region: $REGION, resource group: $RESOURCE_GROUP)..."
+          ibmcloud login --apikey "$IBMCLOUD_API_KEY" -r "$REGION" -g "$RESOURCE_GROUP"
+          
+          echo "Starting job: $JOB_NAME in $PROJECT_NAME"
+          
+          ibmcloud ce project select --name "$PROJECT_NAME"
+          ibmcloud ce jobrun submit --job "$JOB_NAME" --wait
+
+      env:
+        - name: IBMCLOUD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ibmcloud-secret
+              key: apikey
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: code-engine-pipeline-cx1
+spec:
+  tasks:
+    - name: run-custom-task-1
+      taskRef:
+        name: ibm-code-engine
+      params:
+        - name: resource-group
+          value: Default
+        - name: region
+          value: us-south
+        - name: project
+          value: tekton-code-engine
+        - name: job
+          value: job-hello-world
+    - name: run-custom-task-2
+      taskRef:
+        name: ibm-code-engine
+      params:
+        - name: resource-group
+          value: Default
+        - name: region
+          value: us-south
+        - name: project
+          value: tekton-code-engine
+        - name: job
+          value: job-hello-world
+---
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: code-engine-pipeline-run-cx1-001
+spec:
+  pipelineRef:
+    name: code-engine-pipeline-cx1
