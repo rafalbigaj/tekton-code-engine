@@ -25,6 +25,8 @@ spec:
         kind: CodeEngineTask
         name: codeenginetask-1
     - name: run-custom-task-2
+      runAfter:
+      - run-custom-task-1
       taskRef:
         apiVersion: custom.tekton.dev/v1alpha1
         kind: CodeEngineTask

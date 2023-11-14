@@ -51,12 +51,11 @@ func main() {
 func initLogger() *zap.SugaredLogger {
 	logLevel := os.Getenv(LogLevelEnv)
 	config := zap.NewProductionConfig()
-	switch logLevel {
-	case "debug":
-		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	case "error":
-		config.Level = zap.NewAtomicLevelAt(zap.ErrorLevel)
+	lvl, err := zap.ParseAtomicLevel(logLevel)
+	if err != nil {
+		panic(err)
 	}
+	config.Level = lvl
 	logger, err := config.Build()
 	if err != nil {
 		panic(fmt.Sprintf("Cannot initialize logger: %v", err))

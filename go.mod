@@ -6,11 +6,13 @@ require (
 	github.com/IBM/code-engine-go-sdk v0.0.0-20220524200558-1191a7b57b9a
 	github.com/IBM/go-sdk-core/v5 v5.10.2
 	github.com/google/licenseclassifier v0.0.0-20221004142553-c1ed8fcf4bab
-	github.com/hashicorp/go-multierror v1.1.1
+	github.com/hashicorp/errwrap v1.1.0
+	github.com/hashicorp/go-cleanhttp v0.5.2
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rafalbigaj/code-engine-batch-job-client v0.0.0-20221127222908-6f8ebb183049
 	github.com/tektoncd/pipeline v0.42.0
 	go.uber.org/zap v1.23.0
-	k8s.io/api v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.4
 	k8s.io/code-generator v0.25.4
@@ -53,10 +55,8 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -102,6 +102,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/api v0.25.4 // indirect
 	k8s.io/apiextensions-apiserver v0.25.4 // indirect
 	k8s.io/gengo v0.0.0-20221011193443-fad74ee6edd9 // indirect
 	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54 // indirect

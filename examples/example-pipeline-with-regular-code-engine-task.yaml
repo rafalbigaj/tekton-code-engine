@@ -17,9 +17,10 @@ spec:
     - name: job
       description: |
         the name of the job to be run in IBM Code Engine
+
   steps:
     - name: main
-      image: docker.io/rafalbigaj/ibmcloud-code-engine:2.12.1.001
+      image: us.icr.io/ai-lifecycle/ibmcloud-code-engine:2.12.1.002
       command: [ "/bin/bash", "-c", "-e", "-o", "pipefail" ]
       args:
         - |
@@ -49,7 +50,7 @@ metadata:
   name: code-engine-pipeline-cx1
 spec:
   tasks:
-    - name: run-custom-task-1
+    - name: run-regular-task-1
       taskRef:
         name: ibm-code-engine
       params:
@@ -61,7 +62,9 @@ spec:
           value: tekton-code-engine
         - name: job
           value: job-hello-world
-    - name: run-custom-task-2
+    - name: run-regular-task-2
+      runAfter:
+      - run-regular-task-1
       taskRef:
         name: ibm-code-engine
       params:
@@ -73,6 +76,7 @@ spec:
           value: tekton-code-engine
         - name: job
           value: job-hello-world
+
 ---
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
@@ -81,3 +85,6 @@ metadata:
 spec:
   pipelineRef:
     name: code-engine-pipeline-cx1
+  podTemplate:
+    imagePullSecrets:
+      - name: ai-lifecycle

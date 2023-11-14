@@ -20,11 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"knative.dev/pkg/apis"
-	"knative.dev/pkg/logging"
-	"knative.dev/pkg/reconciler"
+	"knative.dev/pkg/controller"
 
-	"github.com/hashicorp/go-multierror"
+	gocache "github.com/patrickmn/go-cache"
 	apisv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
 	typedv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/client/clientset/versioned/typed/codeengine/v1beta1"
 	listersv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/client/listers/codeengine/v1beta1"
@@ -39,35 +37,83 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	"knative.dev/pkg/apis"
+	"knative.dev/pkg/logging"
+	"knative.dev/pkg/reconciler"
 )
 
 // Reconciler implements simpledeploymentreconciler.Interface for
 // CodeEngineTask resources.
 type Reconciler struct {
-	kubeclient          kubernetes.Interface
-	runLister           listersalpha.RunLister
-	secretLister        corelisters.SecretLister
-	taskLister          tasklisterv1alpha1.CodeEngineTaskLister
+	kubeclient kubernetes.Interface
+
+	// Listers for Tekton resources
+	runLister    listersalpha.RunLister
+	secretLister corelisters.SecretLister
+	taskLister   tasklisterv1alpha1.CodeEngineTaskLister
+
+	// Listers and clients for Code Engine resources
 	jobDefinitionLister listersv1beta1.JobDefinitionLister
 	jobRunLister        listersv1beta1.JobRunLister
 	jobRunsClient       typedv1beta1.JobRunInterface
 	codeEngineNamespace string
+
+	// Local cache for already created job runs
+	createdJobRuns *gocache.Cache
 }
 
 // ReconcileKind implements Interface.ReconcileKind.
 func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) reconciler.Event {
-	var mErr error
-
-	// This logger has all the context necessary to identify which resource is being reconciled.
 	logger := logging.FromContext(ctx)
 	logger.Info("Reconciling CodeEngine Run")
 
+	// Make sure CodeEngine resource is being reconciled. Ignore others.
+	if !r.verifyCodeEngineSpec(run, logger) {
+		return nil
+	}
+
+	// Store the condition before reconcile
+	beforeCondition := run.Status.GetCondition(apis.ConditionSucceeded)
+	defer func() {
+		afterCondition := run.Status.GetCondition(apis.ConditionSucceeded)
+		events.Emit(ctx, beforeCondition, afterCondition, run)
+	}()
+
+	if !run.HasStarted() {
+		r.initializeRun(ctx, run, logger)
+	}
+
+	if run.IsDone() {
+		r.finalizeRun(ctx, run, logger)
+	} else {
+		status, err := taskv1alpha1.DecodeStatusFromRun(run, logger)
+		if err != nil {
+			return err
+		}
+
+		// Reconcile the Run
+		err = r.reconcile(ctx, run, logger, status)
+		if err != nil {
+			return err
+		}
+
+		err = status.EncodeIntoRun(run, logger)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// check if Run Spec refers to CodeEngine custom resource (embedded or standalone)
+func (r *Reconciler) verifyCodeEngineSpec(run *v1alpha1.Run, logger *zap.SugaredLogger) bool {
 	if run.Spec.Ref != nil && run.Spec.Spec != nil {
 		logger.Error("Run has to provide one of Run.Spec.Ref/Run.Spec.Spec")
 	}
 	if run.Spec.Spec == nil && run.Spec.Ref == nil {
 		logger.Error("Run does not provide neither task spec nor reference")
-		return nil
+		return false
 	}
 
 	// Ensure expected custom task reference
@@ -77,7 +123,7 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 		logger.Errorf("Unexpected custom task kind: %s/%s, expected: %s/%s",
 			taskv1alpha1.SchemeGroupVersion.String(), codeenginetask.CustomTaskKind,
 			run.Spec.Ref.APIVersion, run.Spec.Ref.Kind)
-		return nil
+		return false
 	}
 
 	// Ensure expected custom task reference
@@ -87,43 +133,10 @@ func (r *Reconciler) ReconcileKind(ctx context.Context, run *v1alpha1.Run) recon
 		logger.Errorf("Unexpected custom task kind: %s/%s, expected: %s/%s",
 			taskv1alpha1.SchemeGroupVersion.String(), codeenginetask.CustomTaskKind,
 			run.Spec.Ref.APIVersion, run.Spec.Ref.Kind)
-		return nil
+		return false
 	}
 
-	if !run.HasStarted() {
-		r.initializeRun(ctx, run, logger)
-	}
-
-	if run.IsDone() {
-		r.finalizeRun(ctx, run, logger)
-	} else {
-		status := &taskv1alpha1.CodeEngineTaskStatus{}
-		if err := run.Status.DecodeExtraFields(status); err != nil {
-			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
-				"Internal error calling DecodeExtraFields: %v", err)
-			logger.Errorf("DecodeExtraFields error: %v", err)
-		}
-
-		// Reconcile the Run
-		if err := r.reconcile(ctx, run, logger, status); err != nil {
-			logger.Errorf("Reconcile error: %v", err)
-			mErr = multierror.Append(mErr, err)
-		}
-
-		if err := run.Status.EncodeExtraFields(status); err != nil {
-			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailed.String(),
-				"Internal error calling EncodeExtraFields: %v", err)
-			logger.Errorf("EncodeExtraFields error: %v", err)
-		}
-	}
-
-	// Store the condition before reconcile
-	beforeCondition := run.Status.GetCondition(apis.ConditionSucceeded)
-
-	afterCondition := run.Status.GetCondition(apis.ConditionSucceeded)
-	events.Emit(ctx, beforeCondition, afterCondition, run)
-
-	return mErr
+	return true
 }
 
 // initialize the Condition and set the start time.
@@ -158,7 +171,7 @@ func (r *Reconciler) reconcile(ctx context.Context, run *v1alpha1.Run, logger *z
 		return err
 	}
 
-	err = r.checkCodeEngineJobRunStatus(ctx, run, status, logger)
+	err = r.checkCodeEngineJobRunStatus(run, status, logger)
 	if err != nil {
 		return err
 	}
@@ -212,15 +225,26 @@ func storeCodeEngineTaskSpec(status *taskv1alpha1.CodeEngineTaskStatus, tls *tas
 	}
 }
 
-func (r *Reconciler) runCodeEngineJob(ctx context.Context, run *v1alpha1.Run, status *taskv1alpha1.CodeEngineTaskStatus, logger *zap.SugaredLogger) error {
+func (r *Reconciler) runCodeEngineJob(
+	ctx context.Context,
+	run *v1alpha1.Run,
+	status *taskv1alpha1.CodeEngineTaskStatus,
+	logger *zap.SugaredLogger,
+) error {
 	// Check if the run has not been started yet.
 	if status.JobRunName == "" {
+		cacheKey := fmt.Sprintf("%s/%s", run.Namespace, run.Name)
+		if _, alreadyCreated := r.createdJobRuns.Get(cacheKey); alreadyCreated {
+			// the local client cache is obsolete, let's wait for the next reconciliation
+			return controller.NewRequeueImmediately()
+		}
+
 		logger.Infof("Starting a new run for CodeEngine job: %q", status.CodeEngineTaskSpec.JobName)
 		jd, err := r.jobDefinitionLister.JobDefinitions(r.codeEngineNamespace).Get(status.CodeEngineTaskSpec.JobName)
 
 		if err != nil {
 			run.Status.MarkRunFailed(taskv1alpha1.CodeEngineTaskRunReasonFailedToStartJobRun.String(),
-				"Error retrieving CodeEngine JobDefinition %q: %v",
+				"Error retrieving CodeEngine JobDefinition %q for Run %s/%s: %v",
 				status.CodeEngineTaskSpec.JobName, run.Namespace, run.Name, err)
 			return err
 		}
@@ -237,7 +261,6 @@ func (r *Reconciler) runCodeEngineJob(ctx context.Context, run *v1alpha1.Run, st
 				JobDefinitionRef: status.CodeEngineTaskSpec.JobName,
 			},
 		}
-
 		apisv1beta1.SetDefaultsFromJobDefinition(jobRun, *jd)
 
 		createdJobRun, err := r.jobRunsClient.Create(ctx, jobRun, metav1.CreateOptions{})
@@ -254,7 +277,11 @@ func (r *Reconciler) runCodeEngineJob(ctx context.Context, run *v1alpha1.Run, st
 	return nil
 }
 
-func (r *Reconciler) checkCodeEngineJobRunStatus(ctx context.Context, run *v1alpha1.Run, status *taskv1alpha1.CodeEngineTaskStatus, logger *zap.SugaredLogger) error {
+func (r *Reconciler) checkCodeEngineJobRunStatus(
+	run *v1alpha1.Run,
+	status *taskv1alpha1.CodeEngineTaskStatus,
+	logger *zap.SugaredLogger,
+) error {
 	// Check if the job run has been completed
 	if len(status.JobRunName) > 0 {
 		logger.Infof("Checking the state of CodeEngine JobRun: %q", status.JobRunName)

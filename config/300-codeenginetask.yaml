@@ -46,3 +46,4 @@ spec:
         type: string
         description: the name of IBM Code Engine batch job
         jsonPath: ".spec.jobName"
+

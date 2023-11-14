@@ -18,6 +18,9 @@ package codeenginetask
 
 import (
 	"context"
+	"time"
+
+	gocache "github.com/patrickmn/go-cache"
 	apisv1beta1 "github.com/rafalbigaj/code-engine-batch-job-client/pkg/apis/codeengine/v1beta1"
 	"github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask"
 	codeenginetaskv1alpha1 "github.com/rafalbigaj/tekton-code-engine/pkg/apis/codeenginetask/v1alpha1"
@@ -86,6 +89,8 @@ func NewController(
 		jobRunsClient: jobRunsClient,
 		// A namespace representing CodeEngine project.
 		codeEngineNamespace: codeEngineNamespace,
+		// Local cache for already created job runs
+		createdJobRuns: gocache.New(5*time.Minute, 5*time.Minute),
 	}
 	impl := runreconciler.NewImpl(ctx, r, func(impl *controller.Impl) controller.Options {
 		return controller.Options{

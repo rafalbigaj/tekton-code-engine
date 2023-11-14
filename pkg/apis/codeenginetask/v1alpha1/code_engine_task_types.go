@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -119,4 +121,25 @@ type CodeEngineTaskList struct {
 // GetStatus retrieves the status of the resource. Implements the KRShaped interface.
 func (t *CodeEngineTask) GetStatus() *duckv1.Status {
 	return &t.Status.Status
+}
+
+func DecodeStatusFromRun(run *v1alpha1.Run, logger *zap.SugaredLogger) (*CodeEngineTaskStatus, error) {
+	status := &CodeEngineTaskStatus{}
+	if err := run.Status.DecodeExtraFields(status); err != nil {
+		run.Status.MarkRunFailed(CodeEngineTaskRunReasonFailed.String(),
+			"Internal error calling DecodeExtraFields: %v", err)
+		logger.Errorf("DecodeExtraFields error: %v", err)
+		return nil, err
+	}
+	return status, nil
+}
+
+func (ts *CodeEngineTaskStatus) EncodeIntoRun(run *v1alpha1.Run, logger *zap.SugaredLogger) error {
+	if err := run.Status.EncodeExtraFields(ts); err != nil {
+		run.Status.MarkRunFailed(CodeEngineTaskRunReasonFailed.String(),
+			"Internal error calling EncodeExtraFields: %v", err)
+		logger.Errorf("EncodeExtraFields error: %v", err)
+		return err
+	}
+	return nil
 }
